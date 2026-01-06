@@ -2,6 +2,24 @@ esphome:
   name: luz-de-natal
   friendly_name: Luz de Natal
 
+  on_boot:
+    priority: -100
+    then:
+      - lambda: |-
+          auto now = id(horario_atual).now();
+          if (!now.is_valid()) return;
+
+          int hora = now.hour;
+          if (hora >= 18 || hora < 6) {
+            id(rele_1).turn_on();
+            id(rele_2).turn_on();
+            id(rele_3).turn_on();
+          } else {
+            id(rele_1).turn_off();
+            id(rele_2).turn_off();
+            id(rele_3).turn_off();
+          }
+
 esp8266:
   board: d1
 
@@ -60,7 +78,7 @@ switch:
     id: rele_1
     pin:
       number: D5
-      inverted: true   # Relé ativo em LOW
+      inverted: true
     restore_mode: ALWAYS_OFF
 
   - platform: gpio
