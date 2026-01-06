@@ -1,72 +1,48 @@
 esphome:
-  name: controle_reles_ntp
-  platform: ESP8266
+  name: luz-de-natal
+
+esp8266:
   board: nodemcuv2
 
-# ------------------------------------
-# 1. WIFI
-# ------------------------------------
 wifi:
   ssid: ""     // *** MUDAR AQUI *** Nome da sua rede Wi-Fi
   password: "" // *** MUDAR AQUI *** Senha da sua rede Wi-Fi
+  min_auth_mode: WPA2
 
-
-  ap:
-    ssid: "Fallback-Reles"
-    password: "12345678"
-
-# ------------------------------------
-# 2. LOG
-# ------------------------------------
 logger:
-
-# ------------------------------------
-# 3. OTA (opcional, mas recomendado)
-# ------------------------------------
 ota:
 
-# ------------------------------------
-# 4. TIME (NTP)
-# ------------------------------------
 time:
   - platform: sntp
-    id: horario_atual
     timezone: America/Sao_Paulo
     servers:
       - a.st1.ntp.br
 
     on_time:
-      # ---- LIGA às 18:00 ----
       - seconds: 0
         minutes: 0
         hours: 18
         then:
-          - logger.log: "⚡ Relés LIGADOS (Noite)"
           - switch.turn_on: rele_1
           - switch.turn_on: rele_2
           - switch.turn_on: rele_3
 
-      # ---- DESLIGA às 06:00 ----
       - seconds: 0
         minutes: 0
         hours: 6
         then:
-          - logger.log: "💤 Relés DESLIGADOS (Dia)"
           - switch.turn_off: rele_1
           - switch.turn_off: rele_2
           - switch.turn_off: rele_3
 
-# ------------------------------------
-# 5. RELÉS
-# ------------------------------------
 switch:
   - platform: gpio
     name: "Relé 1"
     id: rele_1
     pin:
       number: D5
-      inverted: true   # RELAY_ON = LOW
-    restore_mode: OFF
+      inverted: true
+    restore_mode: ALWAYS_OFF
 
   - platform: gpio
     name: "Relé 2"
@@ -74,7 +50,7 @@ switch:
     pin:
       number: D6
       inverted: true
-    restore_mode: OFF
+    restore_mode: ALWAYS_OFF
 
   - platform: gpio
     name: "Relé 3"
@@ -82,4 +58,4 @@ switch:
     pin:
       number: D7
       inverted: true
-    restore_mode: OFF
+    restore_mode: ALWAYS_OFF
