@@ -1,79 +1,172 @@
-//sensor umidade/temperatura
 #include <dht.h>
-#define pinSensorUT 24
+#include <Ethernet.h>
+#include <PubSubClient.h>
 
+// ================== DHT ==================
+#define pinSensorUT 24
 dht sensorDHT;
 
-//Display_LED
+float temperatura = 0.0;
+float umidade = 0.0;
+unsigned long lastDHT = 0;
+
+// ================== DISPLAY ==================
 byte seven_seg_digits[20][7] = {
-                                 { 1,1,1,1,1,1,0 },  // = Digito 0
-                                 { 0,1,1,0,0,0,0 },  // = Digito 1
-                                 { 1,1,0,1,1,0,1 },  // = Digito 2
-                                 { 1,1,1,1,0,0,1 },  // = Digito 3
-                                 { 0,1,1,0,0,1,1 },  // = Digito 4
-                                 { 1,0,1,1,0,1,1 },  // = Digito 5
-                                 { 1,0,1,1,1,1,1 },  // = Digito 6
-                                 { 1,1,1,0,0,0,0 },  // = Digito 7
-                                 { 1,1,1,1,1,1,1 },  // = Digito 8
-                                 { 1,1,1,0,0,1,1 },  // = Digito 9
-                                 { 1,1,1,0,1,1,1 },  // = Digito A
-                                 { 0,0,1,1,1,1,1 },  // = Digito B
-                                 { 1,0,0,1,1,1,0 },  // = Digito C
-                                 { 0,1,1,1,1,0,1 },  // = Digito D
-                                 { 1,0,0,1,1,1,1 },  // = Digito E
-                                 { 1,0,0,0,1,1,1 },  // = Digito F
-                                 { 1,0,1,1,1,1,1 },  // = Digito G
-                                 { 0,1,1,0,1,1,1 },  // = Digito H
-                                 { 0,0,0,0,1,1,0 },  // = Digito I
-                                 { 0,1,1,1,1,0,0 },  // = Digito J
+  { 1,1,1,1,1,1,0 }, { 0,1,1,0,0,0,0 }, { 1,1,0,1,1,0,1 }, { 1,1,1,1,0,0,1 },
+  { 0,1,1,0,0,1,1 }, { 1,0,1,1,0,1,1 }, { 1,0,1,1,1,1,1 }, { 1,1,1,0,0,0,0 },
+  { 1,1,1,1,1,1,1 }, { 1,1,1,0,0,1,1 }, { 1,1,1,0,1,1,1 }, { 0,0,1,1,1,1,1 },  
+  { 1,0,0,1,1,1,0 }, { 0,1,1,1,1,0,1 }, { 1,0,0,1,1,1,1 }, { 1,0,0,0,1,1,1 },  
+  { 1,0,1,1,1,1,1 }, { 0,1,1,0,1,1,1 }, { 0,0,0,0,1,1,0 }, { 0,1,1,1,1,0,0 }, 
 };
 
-void setup () {
-  //sensor umidade/temperatura
-  Serial.begin(9600);
-  
-  //Display_LED
-  pinMode(30, OUTPUT); //Pino 2 do Arduino ligado ao segmento A  
-  pinMode(31, OUTPUT); //Pino 3 do Arduino ligado ao segmento B
-  pinMode(32, OUTPUT); //Pino 4 do Arduino ligado ao segmento C
-  pinMode(33, OUTPUT); //Pino 5 do Arduino ligado ao segmento D
-  pinMode(34, OUTPUT); //Pino 6 do Arduino ligado ao segmento E
-  pinMode(35, OUTPUT); //Pino 7 do Arduino ligado ao segmento F
-  pinMode(36, OUTPUT); //Pino 8 do Arduino ligado ao segmento G
-  pinMode(37, OUTPUT); //Pino 9 do Arduino ligado ao segmento PONTO
-  writePonto(0);  // Inicia com o ponto desligado
-}
+unsigned long lastDisplay = 0;
+byte displayDigit = 0;
 
-void writePonto(byte dot) { //Funcao que aciona o ponto no display  
+// ================== ETHERNET / MQTT ==================
+byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
+
+const char* mqttserver = "1.1.1.1";
+int mqttserverport = 1883;
+const char* mqttuser = "user";
+const char* mqttpass = "user";
+
+EthernetClient ethClient;
+PubSubClient mqtt (ethClient);
+
+unsigned long lastMQTT = 0;
+
+// ================== FUNÇÕES ================
+void writePonto(byte dot) {       //Funcao que aciona o ponto no display  
   digitalWrite(37, dot);
 }
 
 void sevenSegWrite(byte digit) {  //Funcao que aciona o display
   byte pin = 30;
-  for (byte segCount = 0; segCount < 7; ++segCount) { //Percorre o array ligando os segmentos correspondentes ao digito 
-    digitalWrite(pin, seven_seg_digits[digit][segCount]);
-    ++pin;
+  for (byte i = 0; i < 7; i++) { //Percorre o array ligando os segmentos correspondentes ao digito 
+    digitalWrite(pin++, seven_seg_digits[digit][i]);
   }
   writePonto(1);  //Liga o ponto
-  delay(2000);   //Aguarda 2000 milisegundos
-  writePonto(0);  //Desliga o ponto
 }
 
-void loop (){
-  //sensor umidade/temperatura
-  sensorDHT.read (pinSensorUT);
-  Serial.print("Umidade: ");
-  Serial.print(sensorDHT.humidity);
-  Serial.print("% ");
-  Serial.print(" Temperatura: ");
-  Serial.print(sensorDHT.temperature);
-  Serial.println("C");
-  delay(1000);
+void reconnect() {
+  mqtt.setServer(mqttserver, mqttserverport);
+
+  while (!mqtt.connected()) {
+    Serial.println("Conectando MQTT... ");
+    if (mqtt.connect("sensor_temp_01",mqttuser,mqttpass)){
+      Serial.println("Conectado!");
+    } else {
+      Serial.print("Falhou, rc= ");
+      Serial.println(mqtt.state());
+      delay(2000);
+    }
+    
+  }
+}
+
+// ================== SETUP ==================
+void setup() {
+  Serial.begin(9600);
+  
+  // start Ethernet
+  if (Ethernet.begin(mac) == 0) {
+    Serial.println("Falha ao configurar a Ethernet usando DHCP");
+    // Check for Ethernet hardware present
+    if (Ethernet.hardwareStatus() == EthernetNoHardware) {
+      Serial.println("O shield Ethernet não foi encontrado. Desculpe, não é possível executar sem hardware. :(");
+    } else if (Ethernet.linkStatus() == LinkOFF) {
+        Serial.println("O cabo Ethernet não está conectado.");
+      }
+    while (true) {
+    }
+  }
+  // Imprime o IP atual e o Status:
+  Serial.print("IP Atual: ");
+  Serial.println(Ethernet.localIP());
+  Serial.println(Ethernet.linkStatus());
+
+  reconnect();
+
+  //MQTT Discovery
+  String discoveryTemperatura =
+    "{\"unique_id\":\"sensor_temperatura_escritorio_01\","
+    "\"device_class\":\"temperature\","
+    "\"unit_of_measurement\":\"°C\","
+    "\"name\":\"Sensor Temp\","
+    "\"state_topic\":\"arduinomesa/temperatura/state\"}";
+
+  mqtt.publish(
+    "homeassistant/sensor/arduinomesa/temperatura/config",
+    discoveryTemperatura.c_str(),
+    true
+  );
+  
+  String discoveryUmidade =
+    "{\"unique_id\":\"sensor_umidade_escritorio_01\","
+    "\"device_class\":\"humidity\","
+    "\"unit_of_measurement\":\"%\","
+    "\"name\":\"Sensor Umidade\","
+    "\"state_topic\":\"arduinomesa/umidade/state\"}";
+
+  mqtt.publish(
+    "homeassistant/sensor/arduinomesa/umidade/config",
+    discoveryUmidade.c_str(),
+    true
+  );
 
   //Display_LED
-  for (byte count = 0; count < 20; count++) {
-     delay(500);
-     sevenSegWrite(count);
+  for (byte i = 30; i <= 37; i++) pinMode(i, OUTPUT);
+  writePonto(0);
+}
+
+// ================== LOOP ==================
+void loop() {
+
+  if (!mqtt.connected()) reconnect();
+  mqtt.loop();
+
+  unsigned long now = millis();
+
+  //Leitura DHT a cada 3s
+  if (now - lastDHT > 3000) {
+    lastDHT = now;
+    sensorDHT.read(pinSensorUT);
+    temperatura = sensorDHT.temperature;
+    umidade = sensorDHT.humidity;
+
+    //Imprime o sensor umidade/temperatura
+    Serial.print("Temperatura: ");
+    Serial.print(temperatura);
+    Serial.println("C");
+    Serial.print("Umidade: ");
+    Serial.print(umidade);
+    Serial.println("% ");
   }
-  delay(5000);
+
+  //Envio MQTT a cada 5s
+  if (now - lastMQTT > 5000) {
+    lastMQTT = now;
+
+    char payloadTemp[10];
+    char payloadHum[10];
+
+    dtostrf(temperatura, 4, 1, payloadTemp);
+    dtostrf(umidade, 4, 1, payloadHum);
+
+ 
+    mqtt.publish("arduinomesa/temperatura/state", payloadTemp);      // temperatura
+    mqtt.publish("arduinomesa/umidade/state", payloadHum);    // umidade
+
+    Serial.print("Temp enviada MQTT: ");
+    Serial.println(payloadTemp);
+    Serial.print("Umidade enviada MQTT: ");
+    Serial.println(payloadHum);
+  
+  }
+
+  //Display_LED
+  if (now - lastDisplay > 2000) {
+    lastDisplay = now;
+    sevenSegWrite(displayDigit);
+  }
 }
