@@ -5,8 +5,8 @@
 // ------------------------------------
 // 1. CONFIGURAÇÕES DE REDE
 // ------------------------------------
-const char* ssid     = "";         // *** MUDAR AQUI *** Nome da sua rede Wi-Fi
-const char* password = "";        // *** MUDAR AQUI *** Senha da sua rede Wi-Fi
+const char* ssid     = "cinza";         // *** MUDAR AQUI *** Nome da sua rede Wi-Fi
+const char* password = "fyswyj-nowqux-tAwta5";        // *** MUDAR AQUI *** Senha da sua rede Wi-Fi
 
 // ------------------------------------
 // 2. CONFIGURAÇÕES DE RELÉS

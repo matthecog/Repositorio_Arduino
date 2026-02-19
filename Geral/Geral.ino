@@ -25,10 +25,10 @@ byte displayDigit = 0;
 // ================== ETHERNET / MQTT ==================
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
 
-const char* mqttserver = "1.1.1.1";
+const char* mqttserver = "192.168.1.224";
 int mqttserverport = 1883;
-const char* mqttuser = "user";
-const char* mqttpass = "user";
+const char* mqttuser = "matheus";
+const char* mqttpass = "Matthecog";
 
 EthernetClient ethClient;
 PubSubClient mqtt (ethClient);
@@ -92,7 +92,7 @@ void setup() {
     "{\"unique_id\":\"sensor_temperatura_escritorio_01\","
     "\"device_class\":\"temperature\","
     "\"unit_of_measurement\":\"°C\","
-    "\"name\":\"Sensor Temp\","
+    "\"name\":\"Sensor de Temperatura\","
     "\"state_topic\":\"arduinomesa/temperatura/state\"}";
 
   mqtt.publish(
@@ -105,7 +105,7 @@ void setup() {
     "{\"unique_id\":\"sensor_umidade_escritorio_01\","
     "\"device_class\":\"humidity\","
     "\"unit_of_measurement\":\"%\","
-    "\"name\":\"Sensor Umidade\","
+    "\"name\":\"Sensor de Umidade\","
     "\"state_topic\":\"arduinomesa/umidade/state\"}";
 
   mqtt.publish(
@@ -127,8 +127,8 @@ void loop() {
 
   unsigned long now = millis();
 
-  //Leitura DHT a cada 3s
-  if (now - lastDHT > 3000) {
+  //Leitura DHT a cada 5s
+  if (now - lastDHT > 5000) {
     lastDHT = now;
     sensorDHT.read(pinSensorUT);
     temperatura = sensorDHT.temperature;
@@ -143,8 +143,8 @@ void loop() {
     Serial.println("% ");
   }
 
-  //Envio MQTT a cada 5s
-  if (now - lastMQTT > 5000) {
+  //Envio MQTT a cada 10s
+  if (now - lastMQTT > 10000) {
     lastMQTT = now;
 
     char payloadTemp[10];
@@ -165,7 +165,7 @@ void loop() {
   }
 
   //Display_LED
-  if (now - lastDisplay > 2000) {
+  if (now - lastDisplay > 3000) {
     lastDisplay = now;
     sevenSegWrite(displayDigit);
   }
